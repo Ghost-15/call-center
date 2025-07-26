@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Call Center</title>
+</head>
+<body>
+    <h2>Connexion</h2>
+    <input id="usernameInput" placeholder="Choisis un nom unique" />
+    <button onclick="connect()">Se connecter</button>
+
+    <div id="userListContainer" style="display:none">
+        <h3>Utilisateurs connectés :</h3>
+        <ul id="userList"></ul>
+    </div>
+
+    <h3>Appel en cours</h3>
+    <video id="localVideo" autoplay muted width="160" height="120" style="border:1px solid black;"></video>
+    <video id="remoteVideo" autoplay width="320" height="240" style="border:1px solid black;"></video>
+
+    <script src="app.js"></script>
+</body>
+</html>
