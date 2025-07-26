@@ -1,23 +1,27 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="UTF-8">
-    <title>Call Center</title>
+    <title>Call Center WebRTC</title>
 </head>
 <body>
-    <h2>Connexion</h2>
-    <input id="usernameInput" placeholder="Choisis un nom unique" />
-    <button onclick="connect()">Se connecter</button>
+<h2>Identifie-toi</h2>
+<input id="usernameInput" placeholder="Ton nom" />
+<button onclick="login()">Connexion</button>
+<div id="app" style="display:none;">
+    <h3>Utilisateurs connectés</h3>
+    <ul id="users"></ul>
+    <h3>Ton flux</h3>
+    <video id="localVideo" autoplay muted></video>
+    <h3>Vidéo distante</h3>
+    <video id="remoteVideo" autoplay></video>
 
-    <div id="userListContainer" style="display:none">
-        <h3>Utilisateurs connectés :</h3>
-        <ul id="userList"></ul>
-    </div>
-
-    <h3>Appel en cours</h3>
-    <video id="localVideo" autoplay muted width="160" height="120" style="border:1px solid black;"></video>
-    <video id="remoteVideo" autoplay width="320" height="240" style="border:1px solid black;"></video>
-
-    <script src="app.js"></script>
+    <h3>Chat</h3>
+    <div id="messages" style="display: flex; flex-direction: column; max-height: 200px; overflow-y: auto; border: 1px solid gray; padding: 5px; margin-bottom: 10px;"></div>
+    <form id="chatForm">
+        <input id="chatInput" type="text" placeholder="Tape ton message..." required />
+        <button type="submit">Envoyer</button>
+    </form>
+</div>
+<script src="app.js"></script>
 </body>
 </html>
