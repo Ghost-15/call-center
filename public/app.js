@@ -1,140 +1,129 @@
 let ws;
+let username;
 let peerConnection;
 let dataChannel;
-let isCaller = false;
+const config = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
-function login() {
-    const username = document.getElementById("usernameInput").value;
+function connect() {
+    username = document.getElementById('username').value;
     if (!username) return;
 
-    ws = new WebSocket("ws://" + location.host);
-    ws.onopen = () => {
-        ws.send(JSON.stringify({ type: "login", name: username }));
-    };
-
-    ws.onmessage = (message) => {
-        const data = JSON.parse(message.data);
-        switch (data.type) {
-            case "userlist":
-                updateUsers(data.users, username);
-                break;
-            case "offer":
-                handleIncomingCall(data);
-                break;
-            case "answer":
-                peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
-                break;
-            case "candidate":
-                peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
-                break;
-            case "leave":
-                endCall();
-                break;
-        }
-    };
-
-    document.getElementById("app").style.display = "block";
+    ws = new WebSocket(`ws://${window.location.host}`);
+    ws.onopen = () => ws.send(JSON.stringify({ type: 'login', name: username }));
+    ws.onmessage = handleMessage;
 }
 
-function updateUsers(users, currentUser) {
-    const ul = document.getElementById("users");
-    ul.innerHTML = "";
-    users.filter(u => u !== currentUser).forEach(user => {
-        const li = document.createElement("li");
+function handleMessage(msg) {
+    const data = JSON.parse(msg.data);
+
+    switch (data.type) {
+        case 'login':
+            if (data.success) updateUsers(data.users);
+            else alert("Nom déjà utilisé.");
+            break;
+        case 'update-users':
+            updateUsers(data.users);
+            break;
+        case 'call-request':
+            if (confirm(`${data.from} veut vous appeler`)) {
+                startCall(false);
+                ws.send(JSON.stringify({ type: 'call-response', from: username, to: data.from, accept: true }));
+            } else {
+                ws.send(JSON.stringify({ type: 'call-response', from: username, to: data.from, accept: false }));
+            }
+            break;
+        case 'call-response':
+            if (data.accept) createOffer(data.from);
+            else alert(`${data.from} a refusé l'appel`);
+            break;
+        case 'offer':
+            peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+            createAnswer(data.from);
+            break;
+        case 'answer':
+            peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+            break;
+        case 'ice':
+            peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+            break;
+    }
+}
+
+function updateUsers(users) {
+    const list = document.getElementById('usersList');
+    list.innerHTML = '';
+    users.filter(u => u !== username).forEach(user => {
+        const li = document.createElement('li');
         li.textContent = user;
-        li.onclick = () => startCall(user);
-        ul.appendChild(li);
+        li.onclick = () => callUser(user);
+        list.appendChild(li);
     });
 }
 
-async function startCall(target) {
+async function callUser(user) {
+    startCall(true);
+    ws.send(JSON.stringify({ type: 'call-request', from: username, to: user }));
+}
+
+async function startCall(isCaller) {
     const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-    document.getElementById("localVideo").srcObject = stream;
+    document.getElementById('localVideo').srcObject = stream;
 
-    const config = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
     peerConnection = new RTCPeerConnection(config);
-    isCaller = true;
-    dataChannel = peerConnection.createDataChannel("chat");
-    setupDataChannelEvents(dataChannel);
-
     stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
 
-    peerConnection.onicecandidate = (event) => {
-        if (event.candidate) {
-            ws.send(JSON.stringify({ type: "candidate", candidate: event.candidate, target }));
+    peerConnection.ontrack = e => {
+        document.getElementById('remoteVideo').srcObject = e.streams[0];
+    };
+
+    peerConnection.onicecandidate = e => {
+        if (e.candidate) {
+            ws.send(JSON.stringify({ type: 'ice', to: remoteUser, candidate: e.candidate }));
         }
     };
 
-    peerConnection.ontrack = ({ streams: [stream] }) => {
-        document.getElementById("remoteVideo").srcObject = stream;
+    peerConnection.ondatachannel = e => {
+        dataChannel = e.channel;
+        setupChat();
     };
 
+    if (isCaller) {
+        dataChannel = peerConnection.createDataChannel("chat");
+        setupChat();
+    }
+}
+
+let remoteUser = "";
+
+async function createOffer(to) {
+    remoteUser = to;
     const offer = await peerConnection.createOffer();
     await peerConnection.setLocalDescription(offer);
-    ws.send(JSON.stringify({ type: "offer", offer, target }));
+    ws.send(JSON.stringify({ type: 'offer', to, offer }));
 }
 
-function handleIncomingCall(data) {
-    const accept = confirm(`Accepter l'appel de ${data.name} ?`);
-    if (!accept) return;
-
-    navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(async (stream) => {
-        document.getElementById("localVideo").srcObject = stream;
-
-        const config = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
-        peerConnection = new RTCPeerConnection(config);
-
-        peerConnection.ondatachannel = (event) => {
-            dataChannel = event.channel;
-            setupDataChannelEvents(dataChannel);
-        };
-
-        stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
-
-        peerConnection.onicecandidate = (event) => {
-            if (event.candidate) {
-                ws.send(JSON.stringify({ type: "candidate", candidate: event.candidate, target: data.name }));
-            }
-        };
-
-        peerConnection.ontrack = ({ streams: [stream] }) => {
-            document.getElementById("remoteVideo").srcObject = stream;
-        };
-
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
-        const answer = await peerConnection.createAnswer();
-        await peerConnection.setLocalDescription(answer);
-        ws.send(JSON.stringify({ type: "answer", answer, target: data.name }));
-    });
+async function createAnswer(to) {
+    remoteUser = to;
+    const answer = await peerConnection.createAnswer();
+    await peerConnection.setLocalDescription(answer);
+    ws.send(JSON.stringify({ type: 'answer', to, answer }));
 }
 
-function setupDataChannelEvents(channel) {
-    channel.onmessage = (event) => {
-        displayMessage({ from: "remote", text: event.data });
+function setupChat() {
+    dataChannel.onmessage = e => {
+        const msg = document.createElement("div");
+        msg.textContent = "personne: " + e.data;
+        document.getElementById("messages").appendChild(msg);
+    };
+    document.getElementById("chatForm").onsubmit = e => {
+        e.preventDefault();
+        const input = document.getElementById("chatInput");
+        const msg = input.value;
+        input.value = "";
+        dataChannel.send(msg);
+        const myMsg = document.createElement("div");
+        myMsg.textContent = "Moi: " + msg;
+        myMsg.style.color = "blue";
+        document.getElementById("messages").appendChild(myMsg);
     };
 }
-
-function displayMessage({ from, text }) {
-    const messageItem = document.createElement("div");
-
-    messageItem.style.alignSelf = from === "remote" ? "self-start" : "self-end";
-    messageItem.style.backgroundColor = from === "remote" ? "whitesmoke" : "blue";
-    messageItem.style.color = from === "remote" ? "black" : "white";
-    messageItem.style.padding = "5px";
-    messageItem.style.margin = "5px";
-    messageItem.style.borderRadius = "10px";
-    messageItem.textContent = text;
-
-    document.getElementById("messages").appendChild(messageItem);
-}
-
-document.getElementById("chatForm").addEventListener("submit", function (e) {
-    e.preventDefault();
-    const input = document.getElementById("chatInput");
-    const message = input.value;
-    input.value = "";
-    if (dataChannel && dataChannel.readyState === "open") {
-        dataChannel.send(message);
-        displayMessage({ from: "me", text: message });
-    }
-});

@@ -1,27 +1,26 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Call Center WebRTC</title>
+    <title>Call Center Junior</title>
 </head>
 <body>
-<h2>Identifie-toi</h2>
-<input id="usernameInput" placeholder="Ton nom" />
-<button onclick="login()">Connexion</button>
-<div id="app" style="display:none;">
-    <h3>Utilisateurs connectés</h3>
-    <ul id="users"></ul>
-    <h3>Ton flux</h3>
-    <video id="localVideo" autoplay muted></video>
-    <h3>Vidéo distante</h3>
-    <video id="remoteVideo" autoplay></video>
+<h1>Bienvenue</h1>
+<input id="username" placeholder="Nom d'utilisateur">
+<button onclick="connect()">Se connecter</button>
 
-    <h3>Chat</h3>
-    <div id="messages" style="display: flex; flex-direction: column; max-height: 200px; overflow-y: auto; border: 1px solid gray; padding: 5px; margin-bottom: 10px;"></div>
-    <form id="chatForm">
-        <input id="chatInput" type="text" placeholder="Tape ton message..." required />
-        <button type="submit">Envoyer</button>
-    </form>
-</div>
+<h2>Utilisateurs connectés</h2>
+<ul id="usersList"></ul>
+
+<video id="localVideo" autoplay muted></video>
+<video id="remoteVideo" autoplay></video>
+
+<h3>Chat</h3>
+<div id="messages"></div>
+<form id="chatForm">
+    <input id="chatInput" placeholder="Message">
+    <button>Envoyer</button>
+</form>
+
 <script src="app.js"></script>
 </body>
 </html>
